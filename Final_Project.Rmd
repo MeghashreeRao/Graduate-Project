@@ -1,0 +1,271 @@
+---
+title: "Final Project"
+author: "STAT40620 - Data Programming with R"
+date: "Meghashree Madhava Rao Ramachandrahosur(21200301)"
+output: word_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+# Part 1: Analysis
+
+This Project is based on _'Old cars dataset'_ which is acquired from UCI Machine Learning data set through _Kaggle website_ to perform various statistical techniques for the purpose to know about data analysis in a practical manner. Resale price of an Old car depends on various factors like current miles per gallon in the City, Manufacturers of engine and car, dated styles, drivetrain and much more. It is very hard for a common man to understand these standards which might lead to one under-selling the Car. This dataset contains the selling price of the car recorded and its features. Hence, a subset of this data is taken and analysed to understand the relationship between a few main features.
+
+The required libraries were loaded and data was checked was any NA values for data cleaning and processing.The dataset contains 204 observations and 26 variables. The variables are: 
+
+* Categorical Variables :
+    + _num_of_doors_: Describes the number of door the Car has in words
+    + _drive_wheels_: Describes the drivetrain of the Car. The dataset has only 3 types of four wheel drive(fwd), front wheel drive(fwd) and 4 wheel drive(4wd). 
+    + _body_style_: Body style describes the body and built of the car and it's trunk. The data has 5 types which are convertible, hardtop, hatchback, sedan and wagon.
+    + _make_ : Make describes the manufacturer of the auto-mobile (Car) like Audi, Renault, Porsche, Nissan etc.
+* Continuous Variables : 
+    + _horsepower_: Horsepower describes the power an engine produces. It's calculated through the power needed to move 550 pounds one foot in one second.
+    + _engine_size_: Describes the size of the engine.
+    + _highway_mpg_: Describes the cars fuel efficiency in miles per gallon on highways. 
+    + _peak_rpm_: Describes the revolution per minute of the engine's crankshaft. It measure of how fast any machine is operating at a given time. gallon.
+    + _city_mpg_: Describes the cars fuel efficiency in miles per gallon in the city.
+    + _price_ : Describes the Car price based on the features.
+
+```{r}
+#Setting directory path
+setwd('C:/Users/91789/OneDrive/Documents/R-tasks/Final')
+
+#Loading the required libraries
+library(data.table)
+library(tidyverse)
+library(ggpubr)
+
+#Giving appropriate names
+cols <- c('symboling', 'normalized_losses', 'make', 'fuel_type', 'aspiration', 'num_of_doors', 'body_style', 'drive_wheels', 'engine_location', 'wheel_base', 'length', 'width', 'height', 'curb_weight', 'engine_type', 'num_of_cylinders', 'engine_size', 'fuel_system', 'bore', 'stroke', 'compression_ratio', 'horsepower', 'peak_rpm', 'city_mpg', 'highway_mpg', 'price')
+
+#Reading dataset
+Data <- read.delim('OldCars_Prices.txt', sep = ",")
+Data <- data.frame(Data)
+colnames(Data) <- cols
+
+#Keeping only a few required parameters for Analysis
+Cars <- select(Data, price, drive_wheels, body_style, horsepower, engine_size, highway_mpg, peak_rpm, city_mpg, num_of_doors, make)
+str(Cars)
+
+#convert vectors to numeric 
+cols.name <- c('engine_size','price','peak_rpm','highway_mpg','city_mpg')
+Cars[cols.name] <- sapply(Cars[cols.name],as.numeric)
+
+#Viewing the data
+head(Cars)
+
+#Replacing '?' with missing values
+
+Cars[Cars =='?'] <- NA
+col_missing <- names(which(colSums(is.na(Cars)) > 0))
+col_missing <- Cars[,c(col_missing)]
+
+#Counting the null values in missing columns
+sapply(col_missing,function(x)sum(is.na(x)))
+
+```
+There are 3 variables namely, horsepower, peak_rpm and num_of_doors with null values.The data contains very limited number of observations. Hence, the null values are not omitted, but replaced with a meaningful value like it's central tendency(mean or median). The categorical variable has _'four'_ as the mode and hence the null values are replaced by four.
+
+The null values for the price variable cannot be replaced. This value is used to find relationship between itself other variables and cannot be estimated and hence omitted.
+
+```{r}
+#Replacing values with mean 
+
+Cars$horsepower <- as.numeric(Cars$horsepower)
+Cars$horsepower[is.na(Cars$horsepower)] <- round(mean(Cars$horsepower, na.rm = TRUE))
+
+Cars$`peak_rpm` <- as.numeric(Cars$`peak_rpm`)
+Cars$`peak_rpm`[is.na(Cars$`peak_rpm`)] <- round(mean(Cars$`peak_rpm`, na.rm = TRUE))
+
+#Replacing missing door value with its mode
+table(Cars$`num_of_doors`) 
+
+Cars$`num_of_doors`[is.na(Cars$`num_of_doors`)] <- "four"
+
+#Drop all values with no price(price cannot be estimated)
+Cars <- na.omit(Cars)
+```
+Summary statistics were produced for only the explanatory variables(covariates) of the dataset. The Car with the median horsepower of 95 HP, engine size of 119.50 L, a highway MPG of 30, peak RPM of 5163, city RPM of 24 sells at € 10,270. Half the cars with city MPG between 19 to 30 sell at a pretty good rates between €(7775, 16501). The average engine size is low. This might b due to the fact that the data is old and so are the Cars. Even with good peak RPM values the average price of car is low.
+
+```{r}
+#Summary statistics of covariates
+summary(subset(Cars,select = -c(drive_wheels,body_style,num_of_doors,make)))
+
+#Correlation between variables
+cor_var <- c('price','city_mpg','horsepower','engine_size','peak_rpm')
+cor(Cars[cor_var], method = "pearson")
+```
+We will see a number of scatter plot along with the regression line to analyse the relationship between Price and a few other covariates.
+
+The first plot depicts relationship between Car price with engine size. Low p-value explains the importance of the variable. Engine size explains 87% of the price value of the car. That is, Car price and Engine size are highly correlated, which is also depicted by very low p-value.
+```{r}
+#Relationship between car price and engine size
+ggscatter(Cars, x = "engine_size", y = "price", add = "reg.line", conf.int = TRUE, cor.coef = TRUE, cor.method = "pearson",xlab = "Engine Size", ylab = "Car Price")
+```
+The plot of Highway miles per gallon versus car price ids plotted to view their relationship. Observing the negative slope of the line, we can tell that the 2 variables share a negative relationship. The very low p-value indicates the high importance of Highway mpg. The R value of -0.71 indicates a good negative correlation between the variables.
+```{r}
+#Relationship between Highway Miles per Gallon and Price
+ggscatter(Cars, x = "highway_mpg", y = "price", add = "reg.line", conf.int = TRUE, cor.coef = TRUE, cor.method = "pearson",xlab = "Highway miles per gallon", ylab = "Car Price")
+```
+Almost perfect horizontal line describes very low correlation between the variables Car price and Peak rpm. This also explains the low car price even with high average value of peak rpm of the car.
+
+```{r}
+#Relationship between Highway Miles per Gallon and Price
+ggscatter(Cars, x = "peak_rpm", y = "price", add = "reg.line", conf.int = TRUE, cor.coef = TRUE, cor.method = "pearson",xlab = "Peak RPM", ylab = "Car Price")
+```
+A box plot between price and Body style of the car was plotted. It can be observed that the prices for cars with convertible body type is skewed along with a little skewness observed in the prices of hatchback body type. The prices for hardtop, sedan and wagon is normally distributed. High prices for a few sedan Cars is seen as outliers.
+
+```{r}
+#Relationship between 'body style' and 'price'
+boxplot(price~body_style, data=Cars,col=(c("darkblue","orange","darkgreen","red","purple")), main="Relationship between 'body style' and 'price'")
+```
+A histogram of Car manufacturers versus price was plotted. The brand says more about the quality and life-time of the vehicle than any other parameters. We can observe that Toyota cars have the highest value followed by Mercedes-Benz. BMW and Volvo almost stand at the same price value. The lowest value of all the car manufacturers is Mercury.
+
+```{r}
+#Relationship between 'make' and 'price'
+ggplot(data=Cars, aes(x=make, y=price, fill = make)) + geom_bar(stat="identity") + theme(axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+```
+Drive wheel type of the car defines the power of the car and the comfortness one has with it. Most sports cars have RWD and is said to be more balanced and fun to drive when compared to fwd and 4wd. The biggest advantage of 4WD vehicle is the versatility and power to take on any terrain or weather condition. The drawback of a 4WD vehicle is that it operates in RWD format most of the time and has less traction then a AWD vehicle. The popularity of the formats are also observed in the summary statistics of that with its prices. RWD has the highest selling price followed by 4WD and FWD with the lowest selling price.
+
+```{r}
+#Descriptive Statistical Analysis
+#Type of drive wheel which is most valuable
+group_one <- Cars[,c('drive_wheels','body_style','price')]
+setDT(group_one)
+group_one[,list(price=mean(price)), by=drive_wheels]
+
+Result <- group_one %>% group_by(drive_wheels, body_style) %>% summarise_at(vars("price"), mean)
+```
+At the end we plot a heat-map to find patters between the 2 most common car features, Drive wheel type and Body style of the Car. We can observe that Car with RWD and Convertible style has the highest selling price. Car with the lowest rated has hatchback body style along with 4WD features. Most of the Cars with RWD feature have more than average selling price when compared to other drive wheels.
+
+```{r}
+#Heatmap to compare Body Style and Price
+ggplot(complete(Result, drive_wheels, body_style), aes(body_style, drive_wheels)) + geom_tile(aes(fill= price)) + scale_fill_gradient2(low = "white", mid = "red", high= "black", midpoint = mean(Result$price), na.value=0) + theme_classic()
+```
+
+# Part 2: R-Package
+
+The first and most important phase of data analysis and modeling is Exploratory Data Analysis. Trends and patterns are discovered during this approach. These patterns influence the proposed hypotheses and have a significant impact on the data analysis stages that follow. **DataExplorer** was created to make EDA easier and faster by automating data visualization and cleaning, allowing data scientists to focus solely on the data and trends. The package also includes functions that make it simple to replace missing values, group categories, and drop and update various features, with the goal of making feature engineering easier.
+
+The package was first released in March 2016 *(version 0.2.3)*, and the latest *version (0.8.1)* was released in January of this year. DataExplorer imports several packages such as reshape2, scales, and ggplot2.
+
+## 1. Introduce() and plot_into()
+
+The introduce function makes it simple to look over your dataset's metadata.
+
+In a bar graph style, plot intro() returns the percentage of discrete columns, continuous columns, missing columns, missing observations, and so on. This simplifies data exploration and provides direction for cleaning our dataset. We can also use the plot intro() function to add a title or change the theme to any of the ggplot2 themes. The theme conifig() function also allows us to specify a list of configurations to theme.
+
+```{r}
+#Load the library
+library(DataExplorer)
+
+#USe of bigger dataset for demonstration
+Data[Data =='?'] <- NA
+str(Data)
+
+#Convert vectors to numeric or character
+
+num_cols <- c('normalized_losses','curb_weight','engine_size','horsepower','peak_rpm','price','city_mpg','highway_mpg','bore','stroke')
+
+Data[num_cols] <- sapply(Data[num_cols],as.numeric)
+Data$symboling <- as.character(Data$symboling)
+
+introduce(Data)
+plot_intro(Data, title ="Introduction Plot", ggtheme =theme_light(), theme_config=theme(legend.position="bottom"))
+```
+
+## 2. plot_missing() 
+
+Plot_missing() gives a way to look more in-depth into how much data you’re missing and where it’s missing. It groups by columns and finds all of the missing rows for each one. It also indicates if the rows have to be dropped because it holds no significance with more null values. 
+```{r}
+plot_missing(Data)
+```
+
+## 3. plot_histogram()
+
+Plot_histogram() is used to work with continuous variables. It helps us with underlying distributions. This function plots histogram for all covariates in the dataset. Different parameters can be used to customize the appearance.
+
+```{r}
+plot_histogram(Cars, title = "Histograms for Cars data", ggtheme = theme_dark(), scale_x = "reverse",nrow = 2, ncol =2)
+
+```
+
+## 4. plot_boxplot()
+
+Plot_boxplot() function creates boxplot for each covariate with respect to 1 categorical variable. Boxplot of Car dataset cavariates are plotted by body_style for example.
+```{r}
+plot_boxplot(Cars, by = 'body_style', ncol = 2L)
+```
+
+# Part 3: Functions/Programming
+
+This task here was to write an R function that can be used to provide a statistical analysis of interest.
+I have written the function *CarStats* to prove the descriptive statistics like mean, minimum, maximum and count for the chosen variable, *Car price*. The function takes the data set as input and outputs a list of statistical variables by the Car manufacturer.
+
+```{r}
+CarStats <- function(Data){
+  
+  avg.price <- 0
+  min.price <- 0
+  max.price <- 0
+  count <- 0
+  
+  for (i in 1:length(names(table(Cars$make)))){
+    avg.price[i] <- mean(Data$price[Data$make == names(table(Data$make))[i]])
+    max.price[i] <- max(Data$price[Data$make == names(table(Data$make))[i]])
+    min.price[i] <- min(Data$price[Data$make == names(table(Data$make))[i]])
+    count[i] <- length(Data$price[Data$make == names(table(Data$make))[i]])
+  }
+  
+  a <- list(manufacturers = names(table(Data$make)), average_price = avg.price, minimum_price = min.price, maximum_price = max.price, count = count)
+  
+  class(a) <- 'CarStats'
+  return(a)
+}
+
+Statistics <- CarStats(Cars)
+
+#printed before to observe the difference
+print(Statistics)
+
+```
+
+The data is now printed to make the crude data look presentable for readability. A dataframe is printed instead of list to present the values side-by-side.
+```{r}
+print.CarStats <- function(Data){
+  
+ Data <- data.frame(Statistics$manufacturers,Statistics$average_price,Statistics$minimum_price,Statistics$maximum_price,Statistics$count)
+ 
+ print(Data)
+  
+}
+print(Statistics)
+```
+
+The Summary statistics is now provided by the function *summary()* to reduce redundancy in data and increase readability for analysis.
+```{r}
+summary.CarStats <- function(Statistics){
+  
+  for (i in 1:length(names(table(Cars$make)))){
+    
+    cat(i,'Average price of Cars by',Statistics$Manufacturers[i],'is \u20ac',Statistics$average_price[i],'\n')
+    
+  }
+}
+summary(Statistics)
+```
+
+For the final *plot()* function, a colourful visualization through pie plot is drawn to easily recognise the highest resale valued cars for buying and selling. It also helps in making future decisions. The *ggplot()* function was used along with other functions from the library  to plot.
+
+```{r}
+plot.CarStats <- function(Statistics){
+  
+  library(ggpubr)
+  Data <- data.frame(Statistics$manufacturers, Statistics$average_price)
+  colnames(Data) <- c('Manufacturers', 'Average Price')
+  ggplot(Data, aes(x='', y=`Average Price`, fill=Manufacturers)) +
+    geom_bar(stat="identity", width=2, color = 'white') +
+    coord_polar("y", start=0) + theme_bw()
+}
+plot(Statistics)
+```
